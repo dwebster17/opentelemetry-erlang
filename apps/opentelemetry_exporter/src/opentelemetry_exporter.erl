@@ -22,13 +22,20 @@ init(Opts) ->
     Endpoints = maps:get(endpoints, Opts, ?DEFAULT_ENDPOINTS),
     case maps:get(protocol, Opts, http_protobuf) of
         grpc ->
-            Endpoints = maps:get(endpoints, Opts, ?DEFAULT_ENDPOINTS),
-            ChannelOpts = maps:get(channel_opts, Opts, #{}),
-            {ok, ChannelPid} = grpcbox_channel:start_link(?MODULE, Endpoints, ChannelOpts),
+            case application:ensure_all_started(grpcbox) of
+                {ok, _} ->
+                    Endpoints = maps:get(endpoints, Opts, ?DEFAULT_ENDPOINTS),
+                    ChannelOpts = maps:get(channel_opts, Opts, #{}),
+                    {ok, ChannelPid} = grpcbox_channel:start_link(?MODULE, Endpoints, ChannelOpts),
 
-            {ok, #state{channel_pid=ChannelPid,
-                        endpoints=Endpoints,
-                        protocol=grpc}};
+                    {ok, #state{channel_pid=ChannelPid,
+                                endpoints=Endpoints,
+                                protocol=grpc}};
+
+                {error, Reason} ->
+                    ?LOG_WARNING("Could not initialize exporter: ~p", [Reason]),
+                    ignore
+            end;
         http_protobuf ->
             {ok, #state{endpoints=Endpoints,
                         protocol=http_protobuf}};
